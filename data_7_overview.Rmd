@@ -1,0 +1,423 @@
+---
+title: "Initial data exploration (v1)"
+author: "Jan"
+date: "07/02/2022"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    theme: paper
+    toc: yes
+    toc_float:
+      collapsed: false
+---
+
+<style type="text/css">
+  body{
+  font-size: 12pt;
+}
+</style>
+
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("TraMineR")) install.packages("TraMineR")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(TraMineR)
+
+setwd("/home/jan/Documents/thesis/2_data")
+
+rm(list = ls())
+
+load("data_covariates.RData")
+```
+
+# Overview
+```{r warning = F, message = F}
+head(data_covariates %>% filter(age >= 40 & age_retired > 50))
+```
+
+# Variables {.tabset .tabset-pills}
+
+## Country
+```{r warning = F, message = F, fig.width = 8, fig.height = 6}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, country) %>%
+  unique() %>%
+  group_by(gender, country) %>%
+  summarise(count = n())
+
+ggplot(data = data_plot, aes(x = reorder(country, count), y = count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+## Class: Oesch 5
+```{r warning = F, message = F, fig.width = 8, fig.height = 6}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, class_oesch5) %>%
+  unique() %>%
+  group_by(gender, class_oesch5) %>%
+  summarise(count = n()) %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = reorder(class_oesch5, count), y = count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Class: Oesch 8
+```{r warning = F, message = F, fig.width = 8, fig.height = 6}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, class_oesch8) %>%
+  unique() %>%
+  group_by(gender, class_oesch8) %>%
+  summarise(count = n()) %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = reorder(class_oesch8, count), y = count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Class: Oesch 16
+```{r warning = F, message = F, fig.width = 8, fig.height = 6}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, class_oesch16) %>%
+  unique() %>%
+  group_by(gender, class_oesch16) %>%
+  summarise(count = n()) %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = reorder(class_oesch16, count), y = count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Year of birth
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, year_birth) %>%
+  unique()
+
+ggplot(data_plot, aes(x = year_birth, fill = gender, color = gender)) +
+  geom_density(position = "identity", alpha = 0.5)+
+  xlab("") + ylab("") +
+  scale_x_continuous(breaks=seq(1900,2000,10)) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## Year of retirement
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, year_retired) %>%
+  unique()
+
+ggplot(data_plot, aes(x = as.numeric(year_retired), fill = gender, color = gender)) +
+  geom_density(position = "identity", alpha = 0.5) +
+  xlab("") + ylab("") +
+  scale_x_continuous(breaks=seq(1900,2020,10)) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## Distance in years to statutory retirement age at age of retirement
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% filter(age == age_retired) %>%
+  select(mergeid, gender, dist_retage) %>%
+  unique()
+
+ggplot(data_plot, aes(x = as.numeric(dist_retage), fill = gender, color = gender)) +
+  geom_density(position = "identity", alpha = 0.5) +
+  xlab("") + ylab("") +
+  scale_x_continuous(breaks=seq(-60,30,5)) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## Family status
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>%
+  select(mergeid, gender, family_status) %>%
+  unique() %>%
+  group_by(gender, family_status) %>%
+  summarise(count = n()) %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = reorder(family_status, count), y = count, fill = gender)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Number of children
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% filter(age == age_retired) %>%
+  select(mergeid, gender, nchildren) %>%
+  unique() %>%
+  group_by(gender, nchildren) %>%
+  summarise(count = n()) %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = nchildren, y = count)) +
+  geom_bar(stat = "identity") +
+  xlab("") +
+  scale_x_continuous(breaks=seq(0,15,1)) +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Ill health
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% ungroup() %>%
+  group_by(age, gender) %>%
+  summarise(ill_health = sum(ill_health, na.rm = T)) %>%
+  unique()
+
+ggplot(data_plot, aes(x = as.numeric(age), y = ill_health, color = gender)) +
+  geom_line() +
+  xlab("") + ylab("") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## Cumulative years in employment
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% filter(age == age_retired) %>%
+  select(mergeid, gender, years_employed) %>%
+  filter(years_employed < 61) %>%
+  unique()
+
+ggplot(data_plot, aes(x = as.numeric(years_employed), fill = gender, color = gender)) +
+  geom_density(position = "identity", alpha = 0.5) +
+  xlab("") + ylab("") +
+  scale_x_continuous(breaks=seq(0,80,5)) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## Job tenure
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% filter(age == age_retired) %>%
+  select(mergeid, gender, job_tenure) %>%
+  filter(job_tenure < 61) %>%
+  unique()
+
+ggplot(data_plot, aes(x = as.numeric(job_tenure), fill = gender, color = gender)) +
+  geom_density(position = "identity", alpha = 0.5) +
+  xlab("") + ylab("") +
+  scale_x_continuous(breaks=seq(0,80,5)) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+rm(data_plot)
+```
+
+## GDP growth rates
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% ungroup() %>%
+  select(country, year, macro_gdpgrowth) %>%
+  unique() %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = as.numeric(year), y = macro_gdpgrowth)) +
+  geom_smooth(se = T) +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Gender-specific unemployment rates
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% ungroup() %>%
+  select(country, year, gender, macro_unemp_gender) %>%
+  unique() %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = as.numeric(year), y = macro_unemp_gender)) +
+  geom_smooth(se = T) +
+  facet_wrap(~gender) +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Gender-specific effective retirement age
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% ungroup() %>%
+  select(country, year, gender, macro_effretage_gender) %>%
+  unique() %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = as.numeric(year), y = macro_effretage_gender)) +
+  geom_smooth(se = T) +
+  facet_wrap(~gender) +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+## Gender-specific life expectancy at age 65
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+data_plot <- data_covariates %>% ungroup() %>%
+  select(country, year, gender, macro_lifeexp65_gender) %>%
+  unique() %>%
+  na.omit()
+
+ggplot(data = data_plot, aes(x = as.numeric(year), y = macro_lifeexp65_gender)) +
+  geom_smooth(se = T) +
+  facet_wrap(~gender) +
+  xlab("") +
+  theme_minimal()
+
+rm(data_plot)
+```
+
+# Sequences {.tabset .tabset-pills}
+
+```{r warning = F, message = F, fig.width = 8, fig.height = 4}
+work_history <- data_covariates %>%
+  filter(age >= 40) %>%
+  group_by(mergeid) %>%
+  mutate(ind = ifelse(work_state == "RET" & lag(work_state) == "RET", 1, 0)) %>%
+  filter(ind != 1) %>%
+  slice(tail(row_number(), 11)) %>%
+  mutate(distance = c(1:n()),
+         age_enter = age_retired - 10) %>%
+  select(-ind)
+
+work_history <- work_history %>% select(mergeid, distance, work_state) %>%
+  pivot_wider(names_from = distance, values_from = work_state) %>%
+  filter(`11` == "RET" & `10` != "EDU" & `1` != "EDU") %>%
+  na.omit()
+
+colnames(work_history) <- c("mergeid", -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, "retired")
+
+work_history <- seqdef(work_history, 2:12, 
+                   states = c("DIS", "DOM", "EDU", "FTE", "OLF", "PRE", "PTE", "RET", "UNE"), 
+                   labels = c("DIS", "DOM", "EDU", "FTE", "OLF", "PRE", "PTE", "RET", "UNE"), 
+                   with.missing = F)
+
+colnames(work_history) <- c(-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, "retired")
+```
+
+## Employment states
+
+I created nine employment states:
+
+* *FTE:* Full-time employment 
+  + ("Employee or self-employed", "Short term job (less than 6 months)") & ("Always full-time", "Changed once from part-time to full-time")
+* *PTE:* Part-time employment 
+  + ("Employee or self-employed", "Short term job (less than 6 months)") & ("Always part-time", "Changed once from full-time to part-time", "Changed multiple times")
+* *OLF:* Out of the labour force 
+  + ("Unemployed and not searching for a job", "Concentration camp", "Exiled or banished", "Labor camp", "Leisure, travelling or doing nothing", "Managing your assets", "Forced labour or in jail", "Military services, war prisoner or equivalent", "Voluntary or community work")
+* *DOM:* Domestic work
+  + ("Looking after home or family")
+* *RET:* Retired 
+  + ("Retired from work")
+* *PRE:* Partly retired 
+  + (not RET & Income from pension)
+* *UNE:* Unemployed 
+  + ("Unemployed and searching for a job")
+* *EDU:* In education 
+  + ("In education", "Training")
+* *DIS:* Sick or diabled 
+  + ("Sick or disabled")
+
+## Mean time in each state
+```{r warning = F, message = F, fig.width = 8, fig.height = 7}
+seqmtplot(work_history, with.legend = F)
+```
+
+## Sequence index plot
+```{r warning = F, message = F, fig.width = 8, fig.height = 7}
+seqIplot(work_history, with.legend = T)
+```
+
+## Ten most frequent sequences
+```{r warning = F, message = F, fig.width = 8, fig.height = 7}
+seqfplot(work_history, with.legend = T)
+```
+
+## State distribution plot
+```{r warning = F, message = F, fig.width = 8, fig.height = 7}
+seqdplot(work_history, with.legend = T)
+```
+
+## Decorated parallel coordinate plots
+```{r warning = F, message = F, fig.width = 8, fig.height = 7}
+seqpcplot(work_history, with.legend = T)
+```
+
+# Possible specifications
+
+**Model A** is the baseline specification and includes both gender and class as separate covariates. This specification and all further models include a range of control variables: age, age squared, age cubed, ill health, the year of birth, the current year, and the distance in years from the gender- and cohort-specific statutory retirement age. All models include country fixed-effects to account for idiosyncratic cross-national differences. 
+
+The following models add further time-varying covariates to the base specification (need to connect to theory).
+
+**Model B** includes indicators for individuals’ _labour market opportunity structure_, namely tenure of the current job in years for working individuals OR cumulative number of years in employment (an important proxy for accumulated pension benefits), number of years spend in full-time education, and the annual gender-specific unemployment rate.
+
+**Model C** includes indicators for individuals’ _family demographic behaviour_, namely their family status (single and never married, partnered, married, divorced, or widowed), the number of persons living in the same household, and the number of grandchildren.
+
+**Model D** combines all variables.
+
+These four models are also estimated with gender class interaction terms.
+
+# Open questions
+
+1. Valid to do CTA with sub-sequences that end (not start) with a specific transition?
+2. Length of sub-sequences (5+1 or 10+1)?
+3. Imputation of missing values in class variable?
+4. Distinguish (in-)voluntary retirement?
+5. Dissimilarity: DHD, LCS, OM with fixed costs, OM with TRATE, …?
+6. Clustering: Ward, PAM, k-means, …?
+7. Run models separately for each cluster as in Studer et al., 2018?
+8. How to control for age, period and cohort effects?
+9. Age of entering the hazard model (depending on length of subsequence)?
+10. Lag covariates to match end of sub-sequences (e.g., family status when entering retirement; moving window averages)?
+11. Include (time-varying) micro-level variables (e.g., family status changes, employment status of spouse, reaching statutory retirement age)?
+12. Include (time-varying) macro-level variables (e.g., unemployment rates, GDP growth rates, statutory retirement age, life expectancy)?
+13. What kind of robustness checks (sub-sequence length, dissimilarity, clustering, …)?
+14. Fill down class variable or use class for main job?
+15. How do deal with missing classes (small business owners)?
+16. Variables that are not time-varying: fill entire column or just at retirement transition?
+
+```{r}
+```
