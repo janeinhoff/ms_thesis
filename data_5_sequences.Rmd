@@ -21,9 +21,7 @@ load("data_output/data_4_class.RData")
 ```
 
 ```{r}
-#data_final <- data_covariates %>% filter(age >= 40 & country %in% c("Germany"))
-
-data_final <- data_covariates %>% filter(age >= 40)
+data_final <- data_covariates %>% filter(age >= 40 & country %in% c("Germany"))
 
 rm(data_covariates)
 ```
@@ -55,30 +53,29 @@ seq_history <- seqdef(work_history, 2:8,
 ```{r}
 seq_distances <- seqdist(seq_history, method = "LCS", with.missing = T)
 
-#seq_cluster <- kmeans(seq_distances, 5)
-#seq_cluster <- pam(seq_distances, 5)
-
 seq_cluster <- wcKMedRange(seq_distances, 2:10,  method = "PAMonce")
 
 plot(seq_cluster, stat = c("ASW", "HC"), norm = "zscoremed", lwd = 1)
 
-#seqdplot(seq_history, group = seq_cluster$clustering$cluster6, border = NA)
+pdf("outputs/cluster_solutions.pdf") 
+plot(seq_cluster, stat = c("ASW", "HC", "PBC", "CH"), norm = "zscoremed", lwd = 1)
+dev.off()
+
+seqdplot(seq_history, group = seq_cluster$clustering$cluster4, border = NA)
 ```
 
 ```{r}
 work_history <- work_history %>% select(mergeid) %>% mutate(retired = 1)
 
-work_history$cluster <- seq_cluster$clustering$cluster5
+work_history$cluster <- seq_cluster$clustering$cluster4
 
 work_history <- work_history %>%
   mutate(
     cluster = case_when(
-    cluster == 14714 ~ "Domestic exit",
-    cluster == 14851 ~ "Transitional part-time retirement",
-    cluster == 14868 ~ "Part-time employment exit",
-    cluster == 14870 ~ "Full-time employment exit",
-    cluster == 32 ~ "Part-time retirement",
-    T ~ ""))
+    cluster == 23633 ~ "Domestic exit",
+    cluster == 23787~ "Part-time employment exit",
+    cluster == 23789 ~ "Full-time employment exit",
+    cluster == 23511 ~ "Part-time retirement"))
 
 rm(seq_history, seq_distances, seq_cluster)
 

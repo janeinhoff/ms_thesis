@@ -1,0 +1,93 @@
+---
+title: "Data analysis"
+date: "28/01/2022"
+---
+
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("nnet")) install.packages("nnet")
+if (!require("stargazer")) install.packages("stargazer")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nnet)
+library(stargazer)
+
+setwd("/home/jan/Documents/thesis/2_data")
+
+rm(list = ls())
+
+load("data_output/data_final.RData")
+```
+
+```{r}
+data_final$cluster <- relevel(as.factor(data_final$cluster), ref = 'not_retired')
+data_final$class_oesch8 <- relevel(as.factor(data_final$class_oesch8), ref = 'Production workers')
+
+formula_base <- as.formula("cluster ~ class_oesch8 + gender + country + age + dist_retage + ill_health")
+
+formula_lmos <- as.formula("cluster ~ class_oesch8 + gender + country + age + dist_retage + ill_health + employed_years + education_years + macro_unemp_gender")
+
+formula_fadb <- as.formula("cluster ~ class_oesch8 + gender + country + age + dist_retage + ill_health + family_status + nchildren")
+
+formula_full <- as.formula("cluster ~ class_oesch8 + gender + country + age + dist_retage + ill_health + employed_years + education_years + macro_unemp_gender + family_status + nchildren")
+
+model_1 <- multinom(formula_base, data = data_final)
+model_2 <- multinom(formula_lmos, data = data_final)
+model_3 <- multinom(formula_fadb, data = data_final)
+model_4 <- multinom(formula_full, data = data_final)
+```
+
+```{r}
+#stargazer(model_1, type = "text", omit = c("country", "age", "dist_retage"))
+```
+
+```{r}
+plot_data_1 <- broom::tidy(model_1, conf.int = T)
+plot_data_1$model <- "baseline"
+
+plot_data_2 <- broom::tidy(model_2, conf.int = T)
+plot_data_2$model <- "+ labour market opportunity structure"
+
+plot_data_3 <- broom::tidy(model_3, conf.int = T)
+plot_data_3$model <- "+ family demographic behaviour"
+
+plot_data_4 <- broom::tidy(model_4, conf.int = T)
+plot_data_4$model <- "full"
+
+plot_data <- rbind(plot_data_1, plot_data_2, plot_data_3, plot_data_4)
+
+#plot_data <- rbind(plot_data_1, plot_data_4)
+
+plot_data <- dplyr::filter(plot_data, substr(term, 1, 5) == "class")
+
+plot_data <- plot_data %>%
+  mutate(
+    term = case_when(
+    term == "class_oesch8Clerks" ~ "Clerks",
+    term == "class_oesch8(Associate) managers" ~ "(Associate) managers",
+    term == "class_oesch8Service workers" ~ "Service workers",
+    term == "class_oesch8Socio-cultural (semi-)professionals" ~ "Socio-cultural (semi-)professionals",
+    term == "class_oesch8Technical (semi-)professionals" ~ "Technical (semi-)professionals",
+    term == "class_oesch8Production workers" ~ "Production workers",
+    term == "class_oesch8Other self-employed" ~ "Other self-employed",
+    T ~ ""))
+
+plot_data$model <- factor(plot_data$model, levels = c("full", "+ family demographic behaviour", "+ labour market opportunity structure", "baseline"))
+
+#plot_data$term <- factor(plot_data$term, levels = c("Other self-employed", "Technical (semi-)professionals", "(Associate) managers", "Clerks", "Socio-cultural (semi-)professionals", "Service workers"))
+
+ggplot(plot_data, aes(x = estimate, y = term, color = model)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "red") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high), position = position_dodge(width = 0.5)) +
+  facet_grid(. ~ y.level, scales = "free_x") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+ggsave("outputs/plot_reg1.png", width = 12, height = 6)
+```
+
+```{r}
+```
