@@ -1,0 +1,92 @@
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("openxlsx")) install.packages("openxlsx")
+if (!require("foreign")) install.packages("foreign")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(openxlsx)
+library(foreign)
+
+rm(list = ls())
+
+gc()
+
+load("data_output/data_3_covariates.RData")
+```
+
+```{r warning = F, message = F}
+data_isco <- read.dta("/Users/jlein/Downloads/thesis/2_data/data_share/sharew7_rel7-1-1_ALL_datasets_stata/sharew7_rel7-1-1_re.dta")
+
+data_isco <- data_isco %>% select(mergeid, re012isco_1:re012isco_20) %>% pivot_longer(!mergeid, names_to = "ordjob", values_to = "class_isco_code") %>% group_by(mergeid) %>% mutate(ordjob = c(1:20)) %>% filter(!is.na(class_isco_code) & class_isco_code > 0) %>% mutate(class_isco_code = as.numeric(substr(class_isco_code, 1, 2)))
+
+data_covariates <- data_covariates %>% 
+  left_join(data_isco, by = c("mergeid", "ordjob")) %>% 
+  select(-ordjob)
+
+rm(data_isco)
+```
+
+```{r warning = F, message = F}
+isco_classes <- read.xlsx("/Users/jlein/Downloads/thesis/2_data/data_other/data_ISCO88.xlsx", sheet = "classes")
+
+isco_classes <- isco_classes %>% na.omit() %>% mutate(class_code = as.numeric(class_code), class_isco_code = as.numeric(class_isco_code))
+
+data_covariates <- data_covariates %>% left_join(isco_classes, by = c("class_isco_code"))
+
+rm(isco_classes)
+
+data_covariates <- data_covariates %>%
+  mutate(class_oesch5 = case_when(
+    class_code %in% c(1,2,5,9,13) ~ "Higher-grade service class",
+    class_code %in% c(6,10,14) ~ "Lower-grade service class",
+    class_code %in% c(3,4) ~ "Small business owners",
+    class_code %in% c(7,11,15) ~ "Skilled workers",
+    class_code %in% c(8,12,16) ~ "Unskilled workers")) %>%
+  mutate(class_oesch8 = case_when(
+    class_code %in% c(1,2) ~ "Self-employed professionals and large employers",
+    class_code %in% c(3,4) ~ "Small business owners",
+    class_code %in% c(5,6) ~ "Technical (semi-)professionals",
+    class_code %in% c(7,8) ~ "Production workers",
+    class_code %in% c(9,10) ~ "(Associate) managers",
+    class_code %in% c(11,12) ~ "Clerks",
+    class_code %in% c(13,14) ~ "Socio-cultural (semi-)professionals",
+    class_code %in% c(15,16) ~ "Service workers")) %>%
+  mutate(class_oesch16 = case_when(
+    class_code %in% c(1) ~ "Large employers",
+    class_code %in% c(2) ~ "Self-employed professionals",
+    class_code %in% c(3) ~ "Small business owners with employees",
+    class_code %in% c(4) ~ "Small business owners without employees",
+    class_code %in% c(5) ~ "Technical experts",
+    class_code %in% c(6) ~ "Technicians",
+    class_code %in% c(7) ~ "Skilled manual",
+    class_code %in% c(8) ~ "Low-skilled manual",
+    class_code %in% c(9) ~ "Higher-grade managers and administrators",
+    class_code %in% c(10) ~ "Lower-grade managers and administrators",
+    class_code %in% c(11) ~ "Skilled clerks",
+    class_code %in% c(12) ~ "Unskilled clerks",
+    class_code %in% c(13) ~ "Socio-cultural professionals",
+    class_code %in% c(14) ~ "Socio-cultural semi-professionals",
+    class_code %in% c(15) ~ "Skilled service",
+    class_code %in% c(16) ~ "Low-skilled service"))
+
+data_covariates <- data_covariates %>%
+  mutate(class_oesch5 = case_when(is.na(class_code) & job_title == "Self-employed (including working for family business)" ~ "Other self-employed", T ~ class_oesch5),
+         class_oesch8 = case_when(is.na(class_code) & job_title == "Self-employed (including working for family business)" ~ "Other self-employed", T ~ class_oesch8),
+         class_oesch16 = case_when(is.na(class_code) & job_title == "Self-employed (including working for family business)" ~ "Other self-employed", T ~ class_oesch16))
+```
+
+```{r warning = F, message = F}
+data_covariates <- data_covariates %>% select(mergeid, country, year_birth, gender, year, age, age_retired, year_retired, work_state, family_status, nchildren, ill_health, dist_retage, education_level, education_years, employed_years, job_tenure, class_isco_code, class_isco_label, class_code, class_oesch5, class_oesch8, class_oesch16, everything())
+
+data_covariates <- data_covariates %>% group_by(mergeid) %>% fill(class_isco_code:class_oesch16, .direction = "down")
+
+data_covariates <- data_covariates %>% filter(country %in% c("Austria", "Belgium", "Cyprus", "Denmark", "Finland", "France", "Germany", "Greece", "Ireland", "Italy", "Luxembourg", "Malta", "Netherlands", "Portugal", "Spain", "Sweden", "Switzerland"))
+```
+
+```{r}
+save.image("data_output/data_4_class.RData")
+```

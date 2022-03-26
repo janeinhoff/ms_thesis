@@ -1,0 +1,57 @@
+---
+title: "Data analysis"
+---
+
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+
+library(dplyr)
+library(ggplot2)
+
+rm(list = ls())
+
+load("data_output/data_final.RData")
+```
+
+```{r}
+data_plot <- data_final %>%
+  group_by(mergeid) %>% filter(age == max(age)) %>% ungroup() %>%
+  group_by(country, gender, class_oesch8) %>%
+  na.omit() %>%
+  summarise(count = n())
+
+pdf("outputs/plot_overview_class.pdf", height = 4, width = 9)
+ggplot(data_plot, aes(x = country, y = count, fill = class_oesch8)) + 
+  geom_bar(position = "fill", stat = "identity") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~gender) +
+  theme_classic() +
+  coord_flip() +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  scale_fill_brewer(palette = "Spectral", name = element_blank()) +
+  theme(legend.position = "bottom")
+dev.off()
+```
+
+```{r}
+data_plot <- data_final %>%
+  group_by(mergeid) %>% filter(age == max(age)) %>% ungroup() %>%
+  group_by(country, gender, cluster) %>%
+  summarise(count = n()) %>%
+  filter(cluster != "not_retired")
+
+pdf("outputs/plot_overview_cluster.pdf", height = 4, width = 9)
+ggplot(data_plot, aes(x = country, y = count, fill = cluster)) + 
+  geom_bar(position = "fill", stat = "identity") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~gender) +
+  theme_classic() +
+  coord_flip() +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  scale_fill_brewer(palette = "Spectral", name = element_blank()) +
+  theme(legend.position = "bottom")
+dev.off()
+
+rm(data_plot)
+```

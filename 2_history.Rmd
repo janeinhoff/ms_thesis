@@ -1,0 +1,58 @@
+---
+title: "Data exploration"
+date: "28/01/2022"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    theme: paper
+    toc: yes
+    toc_float:
+      collapsed: false
+---
+
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("foreign")) install.packages("foreign")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(foreign)
+
+rm(list = ls())
+```
+
+```{r warning = F, message = F, results = 'hide'}
+job_episodes <- read.dta("data_share/sharewX_rel7-1-0_gv_job_episodes_panel_stata/sharewX_rel7-1-0_gv_job_episodes_panel.dta")
+
+job_episodes <- job_episodes %>% 
+  select(mergeid, year, age, situation, working_hours, first_pension) %>%
+  mutate(situation = as.character(situation), first_pension = ifelse(is.na(first_pension) & situation == "Retired from work", 1, first_pension)) %>%
+  group_by(mergeid) %>% fill(c("mergeid", "year", "age", "situation", "first_pension"), .direction = "down") %>% ungroup() %>%
+  mutate(situation = ifelse(situation != "Retired from work" & !is.na(first_pension), "Partly retired", situation)) %>%
+  mutate(work_state = case_when(
+    situation %in% c("In education", "Training") ~ "OLF",
+    situation %in% c("Employee or self-employed", "Short term job (less than 6 months)") ~ "FTE",
+    situation %in% c("Unemployed but not searching for a job") ~ "OLF",
+    situation %in% c("Looking after home or family") ~ "OLF",
+    situation %in% c("Retired from work") ~ "RET",
+    situation %in% c("Partly retired") ~ "PRE",
+    situation %in% c("Sick or disabled") ~ "OLF",
+    situation %in% c("Unemployed and searching for a job") ~ "UNE",
+    situation %in% c("Concentration camp", "Exiled or banished", "Labor camp", "Leisure, travelling or doing nothing", "Managing your assets", "Forced labour or in jail", "Military services, war prisoner or equivalent", "Voluntary or community work") ~ "OLF",
+    situation %in% c("Don't know", "Other", "Refusal") ~ "",
+    TRUE ~ situation),
+    work_state = ifelse(work_state == "", NA, work_state)) %>%
+  mutate(work_state = case_when(
+    working_hours %in% c("Always full-time", "Changed once from part-time to full-time") & !situation %in% c("Partly retired", "Retired from work") ~ "FTE",
+    working_hours %in% c("Always part-time", "Changed once from full-time to part-time", "Changed multiple times") & !situation %in% c("Partly retired", "Retired from work") ~ "PTE",
+    TRUE ~ work_state)) %>%
+  select(mergeid, age, work_state)
+```
+
+```{r warning = F, message = F, results = 'hide'}
+save.image("data_output/data_2_history.RData")
+```

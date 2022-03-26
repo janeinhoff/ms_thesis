@@ -1,0 +1,31 @@
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("mice")) install.packages("mice")
+
+library(dplyr)
+library(mice)
+
+rm(list = ls())
+
+load("data_output/data_5_sequences.RData")
+```
+
+```{r}
+data_imputed <- data_final %>% filter(age == max(age)) %>% select(age, gender, country, cluster, ill_health, class_oesch8, year_birth, employed_years, family_status, nchildren, education_level, education_years)
+
+data_imputed <- mice(data_imputed, method = 'polyreg', m = 1, seed = 500)
+
+data_imputed <- complete(data_imputed, 1)
+
+data_imputed <- data_imputed %>% select(mergeid, class_oesch8) %>% rename("class_oesch8_imputed" = "class_oesch8")
+```
+
+```{r}
+data_final <- data_final %>% left_join(data_imputed, by = "mergeid")
+
+data_final <- data_final %>% select(mergeid, country, year_birth, gender, age, age_retired, age_enter, year, year_retired, cluster, work_state, family_status, nchildren, ill_health, dist_retage, education_level, education_years, employed_years, job_tenure, class_isco_code, class_isco_label, class_code, class_oesch5, class_oesch8, class_oesch8_imputed, class_oesch16, everything())
+```
+
+```{r}
+save.image("data_output/data_final.RData")
+```

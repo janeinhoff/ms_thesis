@@ -1,0 +1,136 @@
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("TraMineR")) install.packages("TraMineR")
+if (!require("TraMineRextras")) install.packages("TraMineRextras")
+if (!require("WeightedCluster")) install.packages("WeightedCluster")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(TraMineR)
+library(TraMineRextras)
+library(WeightedCluster)
+
+rm(list = ls())
+```
+
+```{r}
+load("data_output/data_4_class.RData")
+
+data_final <- data_covariates
+
+rm(data_covariates)
+```
+
+```{r}
+work_history <- data_final %>%
+  group_by(mergeid) %>%
+  mutate(ind = ifelse(work_state == "RET" & lag(work_state) == "RET", 1, 0)) %>%
+  filter(ind != 1) %>%
+  slice(tail(row_number(), 6)) %>%
+  mutate(distance = c(1:n()),
+         age_enter = age_retired - 6) %>%
+  select(-ind)
+
+work_history <- work_history %>% select(mergeid, distance, work_state) %>%
+  pivot_wider(names_from = distance, values_from = work_state) %>%
+  filter(`6` == "RET") %>%
+  na.omit()
+
+colnames(work_history) <- c("mergeid", -5, -4, -3, -2, -1, "retired")
+```
+
+```{r}
+seq_history <- seqdef(work_history, 2:7, 
+                   states = c("FTE", "OLF", "PRE", "PTE", "RET", "UNE"), 
+                   labels = c("FTE", "OLF", "PRE", "PTE", "RET", "UNE"), 
+                   with.missing = F)
+```
+
+```{r}
+rm(data_final)
+
+gc()
+
+seq_distances <- seqdist(seq_history, method = "LCS", with.missing = T)
+
+seq_ward <- hclust(as.dist(seq_distances), method = "ward")
+
+wardRange <- as.clustrange(seq_ward, diss = seq_distances, ncluster = 6)
+
+pdf("outputs/cluster_solutions_ward.pdf") 
+plot(wardRange, stat = c("ASW", "HC", "CH", "PBC"), norm = "zscore", lwd = 1)
+dev.off()
+
+seq_cluster <- wcKMedRange(seq_distances, kvals = 2:6, initialclust = seq_ward)
+
+pdf("outputs/cluster_solutions_pam.pdf") 
+plot(seq_cluster, stat = c("ASW", "HC", "CH", "PBC"), norm = "zscore", lwd = 1)
+dev.off()
+
+seq_cluster$clustering$cluster4 <- factor(seq_cluster$clustering$cluster4, labels = c("Full-time employment exit", "Part-time employment exit", "Part-time retirement", "Domestic work exit")) 
+
+pdf("outputs/plot_sequences.pdf", width = 11, height = 5) 
+seqIplot(seq_history, group = seq_cluster$clustering$cluster4, border = NA, sortv = "from.start", cols = 4)
+dev.off()
+
+rm(seq_ward, wardRange)
+```
+
+```{r}
+load("data_output/data_4_class.RData")
+
+data_final <- data_covariates %>% filter(age >= 40)
+
+rm(data_covariates)
+```
+
+```{r}
+work_history <- work_history %>% select(mergeid) %>% mutate(retired = 1)
+
+work_history$cluster <- seq_cluster$clustering$cluster4
+
+rm(seq_history, seq_distances, seq_cluster)
+
+data_final <- data_final %>%
+  mutate(retired = ifelse(age >= age_retired, 1, 0),
+         retired = ifelse(is.na(retired), 0, retired)) %>%
+  left_join(work_history, by = c("mergeid", "retired"))
+
+data_final <- data_final %>%
+  mutate(cluster = ifelse(is.na(cluster), "not_retired", as.character(cluster))) %>%
+  select(-retired)
+
+data_final <- data_final %>%
+  group_by(mergeid) %>%
+  mutate(ind = ifelse(work_state == "RET" & lag(work_state) == "RET", 1, 0)) %>%
+  filter(ind != 1) %>%
+  select(-ind)
+
+rm(work_history)
+```
+
+```{r warning = F, message = F}
+data_final <- data_final %>% mutate(age_enter = age_retired - 5)
+
+data_final <- data_final %>% select(mergeid, country, year_birth, gender, age, age_retired, age_enter, year, year_retired, cluster, work_state, family_status, nchildren, ill_health, dist_retage, education_level, education_years, employed_years, job_tenure, class_isco_code, class_isco_label, class_code, class_oesch5, class_oesch8, class_oesch16, everything())
+
+data_final$year <- as.factor(data_final$year)
+data_final$year_birth <- as.factor(data_final$year_birth)
+data_final$year_retired <- as.factor(data_final$year_retired)
+data_final$ill_health <- as.factor(data_final$ill_health)
+data_final$employed_years <- as.numeric(data_final$employed_years)
+data_final$dist_retage <- as.numeric(data_final$dist_retage)
+
+data_final$cluster <- relevel(as.factor(data_final$cluster), ref = 'not_retired')
+data_final$gender <- relevel(as.factor(data_final$gender), ref = 'Male')
+data_final$class_oesch8 <- relevel(as.factor(data_final$class_oesch8), ref = 'Production workers')
+data_final$family_status <- relevel(as.factor(data_final$family_status), ref = 'married')
+data_final$education_level <- relevel(as.factor(data_final$education_level), ref = 'low')
+```
+
+```{r}
+save.image("data_output/data_5_sequences.RData")
+```

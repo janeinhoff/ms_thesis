@@ -1,0 +1,162 @@
+# data_covaraites
+
+```{r setup, warning = F, message = F}
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("openxlsx")) install.packages("openxlsx")
+if (!require("foreign")) install.packages("foreign")
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(openxlsx)
+library(foreign)
+
+rm(list = ls())
+
+gc()
+```
+
+```{r warning = F, message = F}
+load("data_output/data_1_main.RData")
+load("data_output/data_2_history.RData")
+
+data_covariates <- data_main %>% left_join(job_episodes, by = c("mergeid", "age"))
+
+rm(data_main, job_episodes)
+```
+
+# Year and age of retirement
+```{r warning = F, message = F}
+age_retired <- data_covariates %>%
+  group_by(mergeid) %>%
+  mutate(ind = ifelse(work_state == "RET" & lag(work_state) == "RET", 1, 0)) %>%
+  filter(ind != 1 & work_state == "RET") %>%
+  select(mergeid, year, age) %>%
+  rename("year_retired" = "year", "age_retired" = "age")
+
+data_covariates <- data_covariates %>% left_join(age_retired, by = "mergeid")
+
+rm(age_retired)
+```
+
+# Years of education
+```{r warning = F, message = F}
+data_covariates <- data_covariates %>%
+  group_by(mergeid) %>%
+  mutate(education_years = ifelse(work_state == "EDU", 1, 0),
+         education_years = ifelse(is.na(education_years), 0, education_years),
+         education_years = cumsum(education_years)) %>%
+  fill(education_years, .direction = "down")
+```
+
+# Highest education level
+```{r warning = F, message = F}
+data_edu <- read.dta("/Users/jlein/Downloads/thesis/2_data/data_share/easySHARE_rel7-1-0_Stata/easySHARE_rel7-1-0.dta")
+
+data_edu <- data_edu %>% 
+  group_by(mergeid) %>% filter(wave == max(wave)) %>% ungroup() %>%
+  select(mergeid, isced1997_r) %>%
+  rename("education_level" = "isced1997_r") %>%
+  mutate(education_level = case_when(
+    education_level %in% c("1. ISCED-97 code 1", "2. ISCED-97 code 2") ~ "high",
+    education_level %in% c("3. ISCED-97 code 3", "4. ISCED-97 code 4") ~ "medium",
+    education_level %in% c("5. ISCED-97 code 5", "6. ISCED-97 code 6") ~ "low",
+    T ~ "")) %>%
+  filter(education_level != "") %>%
+  unique()
+
+data_covariates <- data_covariates %>% left_join(data_edu, by = "mergeid")
+
+rm(data_edu)
+```
+
+# Job tenure & Years in employment
+```{r warning = F, message = F}
+data_covariates <- data_covariates %>%
+  group_by(mergeid, ordjob) %>%
+  mutate(job_tenure = ifelse(!is.na(ordjob), 1, NA),
+         job_tenure = cumsum(job_tenure)) %>%
+  group_by(mergeid) %>%
+  mutate(job_tenure = ifelse(is.na(job_tenure), 0, job_tenure)) %>%
+  mutate(employed_years = ifelse(job_tenure != 0, 1, 0),
+         employed_years = cumsum(employed_years)) %>%
+  fill(employed_years, .direction = "down")
+```
+
+# family status: single, partnered, married, divorce, widowed
+```{r warning = F, message = F}
+# https://www.share-datadocutool.org/control_construct_schemes/view/205
+data_family <- read.dta("/Users/jlein/Downloads/thesis/2_data/data_share/sharew7_rel7-1-1_ALL_datasets_stata/sharew7_rel7-1-1_rp.dta")
+
+data_family <- data_family %>% 
+  select(mergeid, rp008_1:rp008_5, rp014_1:rp014_4, rp017_1:rp017_10, rp011_1:rp011_16) %>%
+  mutate(across(rp008_1:rp011_16, as.double)) %>%
+  pivot_longer(!mergeid, names_to = "family_status", values_to = "year") %>%
+  na.omit() %>% arrange(mergeid, year) %>%
+  mutate(
+    family_status = as.character(family_status),
+    family_status = case_when(
+    substr(family_status, 1, 5) == "rp008" ~ "married",
+    substr(family_status, 1, 5) == "rp017" ~ "patnered",
+    substr(family_status, 1, 5) == "rp014" ~ "divorced",
+    substr(family_status, 1, 5) == "rp011" ~ "widowed",
+    substr(family_status, 1, 5) == "rp020" ~ "single",
+    TRUE ~ "single")) %>%
+  group_by(mergeid) %>%
+  complete(year = 1920:2017) %>%
+  fill(family_status, .direction = "down") %>%
+  mutate(year = as.character(year),
+         family_status = ifelse(is.na(family_status), "single", family_status)) %>% 
+  unique()
+
+data_covariates <- data_covariates %>% left_join(data_family, by = c("mergeid", "year")) %>% select(-c(withpartner, married))
+
+rm(data_family)
+
+#### FAIL: AADDED OBS, CHEKC WAVE 3 IF SOME MERGEID ARE MISSING
+```
+
+# ill health
+```{r warning = F, message = F}
+data_health <- read.dta("/Users/jlein/Downloads/thesis/2_data/data_share/sharew7_rel7-1-1_ALL_datasets_stata/sharew7_rel7-1-1_hs.dta")
+
+data_health <- data_health %>% 
+  select(mergeid, hs059_1, hs060_1, hs059_2, hs060_2, hs059_3, hs060_3) %>%
+  pivot_longer(!mergeid, names_to = "ill_health", values_to = "year") %>%
+  filter(year %in% c(1900:2017)) %>%
+  mutate(ill_health = case_when(
+    ill_health == "hs059_1" ~ 1,
+    ill_health == "hs060_1" ~ 0,
+    ill_health == "hs059_2" ~ 1,
+    ill_health == "hs060_2" ~ 0,
+    ill_health == "hs059_3" ~ 1,
+    ill_health == "hs060_3" ~ 0)) %>% 
+  group_by(mergeid) %>% 
+  complete(year = 1920:2017) %>% 
+  fill(ill_health, .direction = "down") %>% 
+  filter(ill_health == 1) %>%
+  mutate(year = as.character(year)) %>%
+  unique()
+
+data_covariates <- data_covariates %>% left_join(data_health, by = c("mergeid", "year")) %>%
+  mutate(ill_health = ifelse(is.na(ill_health), 0, ill_health))
+
+rm(data_health)
+
+### CHECK IF SOME MERGEIDS ARE MISSING!!!!
+```
+
+```{r warning = F, message = F}
+data_covariates <- data_covariates %>% 
+  rename("year_birth" = "yrbirth") %>% 
+  filter(country != "Israel") %>%
+  mutate(dist_retage = age - macro_retage_gender)
+
+data_covariates <- data_covariates %>% select(mergeid, country, year_birth, gender, year, age, age_retired, year_retired, work_state, family_status, nchildren, ill_health, dist_retage, education_level, education_years, employed_years, job_tenure, everything())
+```
+
+```{r}
+save.image("data_output/data_3_covariates.RData")
+```
